@@ -36,16 +36,11 @@ class FacebookProvider(SocialProvider):
 
     def __init__(self, credentials: dict | None = None):
         creds = dict(credentials or {})
-        # Normalize: accept app_id/app_secret as aliases for client_id/client_secret
         if "app_id" in creds and "client_id" not in creds:
             creds["client_id"] = creds.pop("app_id")
         if "app_secret" in creds and "client_secret" not in creds:
             creds["client_secret"] = creds.pop("app_secret")
         super().__init__(creds)
-
-    # ------------------------------------------------------------------
-    # Metadata
-    # ------------------------------------------------------------------
 
     @property
     def platform_name(self) -> str:
@@ -67,7 +62,7 @@ class FacebookProvider(SocialProvider):
     def supported_media_types(self) -> list[MediaType]:
         return [MediaType.JPEG, MediaType.PNG, MediaType.GIF, MediaType.MP4, MediaType.MOV]
 
- @property
+    @property
     def required_scopes(self) -> list[str]:
         return [
             "business_management",
@@ -85,10 +80,6 @@ class FacebookProvider(SocialProvider):
             publish_per_day=4800,
             extra={"posts_per_24h_per_page": 4800},
         )
-
-    # ------------------------------------------------------------------
-    # OAuth
-    # ------------------------------------------------------------------
 
     def get_auth_url(self, redirect_uri: str, state: str) -> str:
         params = {
@@ -126,11 +117,6 @@ class FacebookProvider(SocialProvider):
         )
 
     def refresh_token(self, short_lived_token: str) -> OAuthTokens:
-        """Exchange a short-lived token for a long-lived token.
-
-        Facebook does not use traditional refresh tokens. Instead, you
-        exchange a short-lived user token for a long-lived one (valid ~60 days).
-        """
         resp = self._request(
             "GET",
             f"{BASE_URL}/oauth/access_token",
@@ -155,10 +141,6 @@ class FacebookProvider(SocialProvider):
             raw_response=data,
         )
 
-    # ------------------------------------------------------------------
-    # Profile
-    # ------------------------------------------------------------------
-
     def get_profile(self, access_token: str) -> AccountProfile:
         resp = self._request(
             "GET",
@@ -177,16 +159,7 @@ class FacebookProvider(SocialProvider):
             extra=data,
         )
 
-    # ------------------------------------------------------------------
-    # Pages
-    # ------------------------------------------------------------------
-
     def get_user_pages(self, access_token: str) -> list[dict]:
-        """Fetch the pages that the authenticated user manages.
-
-        Returns a list of dicts each containing id, name, access_token,
-        category, and picture.
-        """
         resp = self._request(
             "GET",
             f"{BASE_URL}/me/accounts",
@@ -218,10 +191,6 @@ class FacebookProvider(SocialProvider):
             )
         return pages
 
-    # ------------------------------------------------------------------
-    # Publishing
-    # ------------------------------------------------------------------
-
     def publish_post(self, access_token: str, content: PublishContent) -> PublishResult:
         page_id = content.extra.get("page_id")
         if not page_id:
@@ -229,7 +198,6 @@ class FacebookProvider(SocialProvider):
                 "page_id is required in content.extra for Facebook publishing",
                 platform=self.platform_name,
             )
-
         if content.post_type == PostType.IMAGE and content.media_urls:
             return self._publish_photo(access_token, page_id, content)
         if content.post_type == PostType.VIDEO and content.media_urls:
@@ -287,10 +255,6 @@ class FacebookProvider(SocialProvider):
             extra=data,
         )
 
-    # ------------------------------------------------------------------
-    # Comments
-    # ------------------------------------------------------------------
-
     def publish_comment(self, access_token: str, post_id: str, text: str) -> CommentResult:
         resp = self._request(
             "POST",
@@ -300,10 +264,6 @@ class FacebookProvider(SocialProvider):
         )
         data = resp.json()
         return CommentResult(platform_comment_id=data["id"], extra=data)
-
-    # ------------------------------------------------------------------
-    # Analytics
-    # ------------------------------------------------------------------
 
     def get_post_metrics(self, access_token: str, post_id: str) -> PostMetrics:
         metrics = [
@@ -324,10 +284,8 @@ class FacebookProvider(SocialProvider):
             name = entry.get("name", "")
             val = entry.get("values", [{}])[0].get("value", 0)
             values[name] = val
-
         reactions = values.get("post_reactions_by_type_total", {})
         total_likes = reactions.get("like", 0) + reactions.get("love", 0) if isinstance(reactions, dict) else 0
-
         return PostMetrics(
             impressions=values.get("post_impressions", 0),
             engagements=values.get("post_engaged_users", 0),
@@ -355,7 +313,6 @@ class FacebookProvider(SocialProvider):
             name = entry.get("name", "")
             val = entry.get("values", [{}])[0].get("value", 0)
             values[name] = val
-
         return AccountMetrics(
             impressions=values.get("page_impressions", 0),
             reach=values.get("page_engaged_users", 0),
@@ -363,16 +320,11 @@ class FacebookProvider(SocialProvider):
             extra={"raw_insights": values},
         )
 
-    # ------------------------------------------------------------------
-    # Inbox
-    # ------------------------------------------------------------------
-
     def get_messages(self, access_token: str, since: datetime | None = None) -> list[InboxMessage]:
         page_id = self.credentials.get("page_id", "me")
         params: dict = {}
         if since:
             params["since"] = int(since.timestamp())
-
         resp = self._request(
             "GET",
             f"{BASE_URL}/{page_id}/conversations",
@@ -380,7 +332,6 @@ class FacebookProvider(SocialProvider):
             params=params,
         )
         conversations = resp.json().get("data", [])
-
         messages: list[InboxMessage] = []
         for convo in conversations:
             convo_id = convo["id"]
@@ -406,7 +357,6 @@ class FacebookProvider(SocialProvider):
         return messages
 
     def reply_to_message(self, access_token: str, message_id: str, text: str, extra: dict | None = None) -> ReplyResult:
-        """Reply to a conversation. message_id should be the conversation ID."""
         resp = self._request(
             "POST",
             f"{BASE_URL}/{message_id}/messages",
@@ -415,10 +365,6 @@ class FacebookProvider(SocialProvider):
         )
         data = resp.json()
         return ReplyResult(platform_message_id=data.get("id", ""), extra=data)
-
-    # ------------------------------------------------------------------
-    # Token management
-    # ------------------------------------------------------------------
 
     def revoke_token(self, access_token: str) -> bool:
         try:
