@@ -68,16 +68,14 @@ class FacebookProvider(SocialProvider):
         return [MediaType.JPEG, MediaType.PNG, MediaType.GIF, MediaType.MP4, MediaType.MOV]
 
     @property
-    def required_scopes(self) -> list[str]:
-        return [
-            "business_management",
-            "pages_show_list",
-            "pages_manage_posts",
-            "pages_read_engagement",
-            "pages_read_user_content",
-            "pages_manage_metadata",
-            "pages_messaging",
-        ]
+def required_scopes(self) -> list[str]:
+    return [
+        "business_management",
+        "pages_show_list",
+        "pages_manage_posts",
+        "pages_read_engagement",
+        "pages_manage_metadata",
+    ]
 
     @property
     def rate_limits(self) -> RateLimitConfig:
